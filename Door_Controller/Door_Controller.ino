@@ -1,5 +1,4 @@
 //For some reason the motor triggers aren't working
-//Can't call ClimateSensorTask from refresh function... perhaps combuine refresh int sensor loop?
 
 #include <Scheduler.h>
 #include <dht.h>
@@ -68,6 +67,8 @@ void SendDoorState();
 void RefreshSensorData();
 void ClimateSensorTask();
 
+void(* resetFunc) (void) = 0;//declare reset function at address 0
+
 void setup() {
 
   board.begin(SERIAL_BAUD);
@@ -79,7 +80,6 @@ void setup() {
   while (!started) {          //wait until we've started
     String recv = board.serialGet();
     if (recv.equals(board.CONFIRMATION)) {  //Await WIFI board startup to continue Uno script
-      Serial.println("Sucess");
       started = true;
     }
   }
@@ -92,8 +92,8 @@ void setup() {
   pinMode(COOP_LIGHT_PIN, OUTPUT);
 
   //Load sensor and communications tasks
-  Scheduler.startLoop(SensorLoop);
   Scheduler.startLoop(SerialLoop);
+  Scheduler.startLoop(SensorLoop);
 }
 
 void loop() {
@@ -103,12 +103,25 @@ void loop() {
 
 //Runs light and climate sensors as per specified SENSOR_INTERVAL
 void SensorLoop() {
-  ClimateSensorTask();
-  SendDoorState();
+  RefreshSensorData();
   if (lightTrigger) {
     DaylightCheck();
   }
   Wait();
+}
+
+void RefreshSensorData() {
+  ClimateSensorTask();
+  SendDoorState();
+  String msg = "L";
+  msg.concat(lightTrigger);
+  String sunLight = "S";
+  lightLevel = analogRead(LIGHT_SENSOR);
+  sunLight.concat(lightLevel);
+  board.serialSend(sunLight);
+  String l = "L";
+  l.concat(brightness);
+  board.serialSend(l);
 }
 
 void Wait() {
@@ -119,6 +132,7 @@ void Wait() {
 //Sends temperature and humidity data to the wifi module
 void ClimateSensorTask() {
   int chk = DHT.read11(DHT11_PIN);
+  yield();
   switch (chk) {
     case DHTLIB_OK:
       String temp = "T";
@@ -140,7 +154,7 @@ void SerialLoop() {
   String recv = board.serialGet();
   if (!recv.equals("")) {
     if (recv.equals("SHUTDOWN")) {
-      //Serial.println(":: Shutdown unprocessed");
+      resetFunc();
     } else if (recv.equals("L1")) {
       board.serialSend(board.CONFIRMATION);
       brightness = 255;
@@ -187,8 +201,6 @@ void SerialLoop() {
 
 //Changing door state over and over even when already closed/open!
 void DaylightCheck() {
-  doorState = DoorState();
-  lightLevel = analogRead(LIGHT_SENSOR);
   if (!(doorState == 0)) {
     if (lightLevel > twilightLightLevel) {
       Wait();
@@ -311,21 +323,4 @@ void CoopLightSwitch(unsigned long fadeDuration = 0, int dimmerValue = 0) {
     yield();
   }
   return;
-}
-
-void RefreshSensorData() {
-//  ClimateSensorTask();
-  delay(1);
-  SendDoorState();
-  delay(1);
-  String msg = "L";
-  msg.concat(lightTrigger);
-  String sunLight = "S";
-  lightLevel = analogRead(LIGHT_SENSOR);
-  delay(1);
-  sunLight.concat(lightLevel);
-  String l = "L";
-  l.concat(brightness);
-  board.serialSend(l);
-  delay(1);
 }
