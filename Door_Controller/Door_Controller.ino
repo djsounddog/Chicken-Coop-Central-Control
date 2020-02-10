@@ -1,5 +1,3 @@
-//For some reason the motor triggers aren't working
-
 #include <Scheduler.h>
 #include <dht.h>
 #include <uno_wifi.h>
