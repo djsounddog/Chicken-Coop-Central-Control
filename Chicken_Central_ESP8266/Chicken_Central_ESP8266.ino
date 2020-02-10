@@ -1,4 +1,6 @@
 #include <ESP8266WiFi.h>
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
 #include <WiFiManager.h>
 
 #define SERIAL_BAUD 115200
@@ -160,9 +162,10 @@ void setup() {
 
   //Initialise WiFiManager library
   WiFiManager wifiManager;
+  wifiManager.resetSettings();
 
   //first parameter is name of access point, second is the password
-  wifiManager.autoConnect("Chicken Central", "ChookCoop");
+  wifiManager.autoConnect("ChickenCentral");
 
   // Start the Web Server
   WebServer.begin();
@@ -177,76 +180,3 @@ void setup() {
 void loop() {
 
 }
-
-/*Checks outdoor light level and determines if door should be opened or closed
-   RETURN: (Global) Boolean if true (1) returns advice to close the door; if false (0) to open the door.
-*/
-/*void CheckLight() {
-  lightLevel = analogRead(lightSensor); //Read analogue signal from light sensor
-  if (lightLevel < 100) {
-    closeDoor = 1;
-  }
-  else {
-    if (lightLevel > 100) {
-      closeDoor = 0;
-    }
-  }
-  }
-
-  /*Checks position of door to determine when to stop the motor at the fully open or fully closed position
-   RETURN: NA
-*/
-/*void OpenCloseDoor() {
-  doorOpen = digitalRead(hallSensor1);
-  doorClosed = digitalRead(hallSensor2);
-
-  //If the door is open and the closeDoor value is true (1) run the motor to close the door
-  if (doorClosed == HIGH && closeDoor) {
-    Serial.println("Closing");
-    CloseDoor();  //Run motor to close the door
-    do {
-      doorClosed = digitalRead(hallSensor2);
-    } while (doorClosed == HIGH);
-    Serial.println("Closed");
-    StopMotor(); //Stop the motor
-    doorOpen = HIGH;
-    doorClosed = LOW;
-  }
-  else {
-    //If the door is closed and the closeDoor value is false (0) run the motor to open the door
-    if (doorOpen == HIGH && ! closeDoor) {
-      Serial.println("Opening");
-      OpenDoor();  //Run motor to open the door
-      do {
-        doorOpen = digitalRead(hallSensor1);
-      } while (doorOpen == HIGH);
-      Serial.println("Open");
-      StopMotor(); //Stop the motor
-      doorOpen = LOW;
-      doorClosed = HIGH;
-    }
-  }
-  }
-
-  void CloseDoor() {
-  digitalWrite(motorSpeed, 255);
-  digitalWrite(motorForward, LOW);
-  digitalWrite(motorBackward, HIGH);
-  }
-
-  void StopMotor() {
-  digitalWrite(motorSpeed, 0);
-  digitalWrite(motorForward, LOW);
-  digitalWrite(motorBackward, LOW);
-  }
-
-  void OpenDoor() {
-  digitalWrite(motorSpeed, 255);
-  digitalWrite(motorForward, HIGH);
-  digitalWrite(motorBackward, LOW);
-  }
-
-  /*Manual button control to open and close door???
-   Uses hall effect sensors to ensure door won't be broken by opening too high or closing too far
-   RETURN: NA
-*/
