@@ -1,17 +1,14 @@
 #include <ESP8266WiFi.h>
+#include <WiFiManager.h>
 
 #define SERIAL_BAUD 115200
 
 #include <Arduino.h>
-#include <Scheduler.h>
+#include <ESP_Scheduler.h>
 #include <Task.h>
 #include <pins_arduino.h>
 
-String codeVersion = "Version 1.0 Dec 2019 by Gilmore";
-
-// WiFi Router Login - change these to your router settings
-const char* SSID = "SSID";
-const char* password = "Password";
+String codeVersion = "Version 1.1 Feb 2020 by Gilmore";
 
 // Create the ESP Web Server on port 80
 WiFiServer WebServer(80);
@@ -26,8 +23,7 @@ int temperature = 0;        //From DHT sensor inside coop
 int humidity = 0;           //From DHT sensor inside coop
 bool roomLight = "0";    //Is internal light on(1) or off(0)
 
-const char* STOP_DOOR = "D0", OPEN_DOOR = "D1", CLOSE_DOOR = "D2";
-const char 
+const String STOP_DOOR = "D0", OPEN_DOOR = "D1", CLOSE_DOOR = "D2";
 
 String recv = "";
 bool data_in = false;
@@ -123,7 +119,7 @@ s:        client.print("Door is: <strong>CLOSING</strong></br>");
 class SerialTask : public Task {
   protected:
     void loop()  {
- while (Serial.available()) {    //while / if serial data
+      while (Serial.available()) {    //while / if serial data
         char c = Serial.read();     //read it
 
         if (c == '~') {       //start recv on ~
@@ -162,18 +158,19 @@ class SerialTask : public Task {
 void setup() {
   Serial.begin(SERIAL_BAUD);
 
-  // Connect to WiFi network
-  WiFi.disconnect();
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, password);
+  //Initialise WiFiManager library
+  WiFiManager wifiManager;
+
+  //first parameter is name of access point, second is the password
+  wifiManager.autoConnect("Chicken Central", "ChookCoop");
 
   // Start the Web Server
   WebServer.begin();
 
   //Begin task scheduler
-  Scheduler.start(&server_task);
-  Scheduler.start(&serial_task);
-  Scheduler.begin();
+  ESPScheduler.start(&server_task);
+  ESPScheduler.start(&serial_task);
+  ESPScheduler.begin();
 
 }
 
