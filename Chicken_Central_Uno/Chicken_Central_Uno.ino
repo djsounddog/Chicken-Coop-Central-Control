@@ -25,32 +25,40 @@ dht DHT;
 #define DHT11_PIN 6
 
 //Control values
-int changeDoorState = 0;    //Toggle door position, 0=stop, 1=open, 2=close
-int doorState = 0;          //0=closed, 1=open, 2=open slightly
-int brightness = 0;         //Coop internal LED brightness value
-int previousBrightness = 0;
-unsigned long sunset = 0;     //sets time at sunset
-long lightLevel = 0;        //Intensity of daylight from Photosensitive LDR Sensor Module
-long twilightLightLevel = 1010; //Intensity from Photosensitive LDR Sensor Module that will trigger the door to open and close
-unsigned long ms = 0;           //Records time in millis
-unsigned long previousms = 0;   //records time that sensor loop was previously run
-unsigned long SENSOR_INTERVAL = 1800000;
-bool lightTrigger = 1;      //Determines if the door will automatically open and close depending on daylight condition
-unsigned long lightFadeDuration = 1800000;      //Fade time duration of the coop room LED in ms
-//const String COOP_LIGHT_ON = "L1";
-//const String COOP_LIGHT_OFF = "L0";
-//const String COOP_LIGHT_DIM_UP = "L+";
-//const String COOP_LIGHT_DIM_DOWN = "L-";
-//const String STOP_DOOR = "O0";
-//const String OPEN_DOOR = "O1";
-//const String CLOSE_DOOR = "O2";
-//const String REFRESH_COMMAND = "REF";
-//const String LIGHT_TRIGGER_ON = "R1";
-//const String LIGHT_TRIGGER_OFF = "R0";
-const unsigned long NIGHT_DURATION = 32400000;
-const unsigned long AWAKE_TIME = 50400000;
-const String AWAKE_MESSAGE = "A";
-unsigned long daylightHours = 0;
+short int temperature             = 0;        //From DHT sensor inside coop
+short int humidity                = 0;           //From DHT sensor inside coop
+short int changeDoorState         = 0;    //Toggle door position, 0=stop, 1=open, 2=close
+short int doorState               = 0;          //0=closed, 1=open, 2=open slightly
+short int brightness              = 0;         //Coop internal LED brightness value
+short int previousBrightness      = 0;
+unsigned long sunset              = 0;     //sets time at sunset
+short int lightLevel              = 0;        //Intensity of daylight from Photosensitive LDR Sensor Module
+long twilightLightLevel           = 1010; //Intensity from Photosensitive LDR Sensor Module that will trigger the door to open and close
+unsigned long ms                  = 0;           //Records time in millis
+unsigned long previousms          = 0;   //records time that sensor loop was previously run
+unsigned long SENSOR_INTERVAL     = 1800000;
+bool lightTrigger                 = 1;      //Determines if the door will automatically open and close depending on daylight condition
+unsigned long lightFadeDuration   = 1800000;      //Fade time duration of the coop room LED in ms
+const char SUNLIGHT_LEVEL         = 'S';
+const String COOP_LIGHT_ON        = "L1";
+const String COOP_LIGHT_OFF       = "L0";
+const String COOP_LIGHT_DIM_UP    = "L+";
+const String COOP_LIGHT_DIM_DOWN  = "L-";
+const String STOP_DOOR            = "O0";
+const String OPEN_DOOR            = "O1";
+const String CLOSE_DOOR           = "O2";
+const String DOOR_CLOSED          = "O0";
+const String DOOR_OPEN            = "O1";
+const String DOOR_AJAR            = "O2";
+const String REFRESH              = "REF";
+const String LIGHT_TRIGGER_ON     = "R1";
+const String LIGHT_TRIGGER_OFF    = "R0";
+const char TEMPERATURE            = 'T';
+const char HUMIDITY               = 'H';
+const unsigned int NIGHT_DURATION = 32400000;
+const unsigned int AWAKE_TIME     = 50400000;
+const char AWAKE_MESSAGE          = 'A';
+unsigned long daylightHours       = 0;
 
 void SensorLoop();
 void SerialLoop();
@@ -111,15 +119,21 @@ void SensorLoop() {
 void RefreshSensorData() {
   ClimateSensorTask();
   SendDoorState();
-  String msg = "L";
-  msg.concat(lightTrigger);
-  String sunLight = "S";
+  if (lightTrigger) {
+    board.serialSend(LIGHT_TRIGGER_ON);
+  } else {
+    board.serialSend(LIGHT_TRIGGER_OFF);
+  }
   lightLevel = analogRead(LIGHT_SENSOR);
-  sunLight.concat(lightLevel);
-  board.serialSend(sunLight);
-  String l = "L";
-  l.concat(brightness);
-  board.serialSend(l);
+  String msg = (String) SUNLIGHT_LEVEL;
+  msg.concat(lightLevel);
+  board.serialSend(msg);
+  
+  if (brightness) {
+    board.serialSend(COOP_LIGHT_ON);
+  } else {
+    board.serialSend(COOP_LIGHT_OFF);
+  }
 }
 
 void Wait() {
@@ -153,39 +167,39 @@ void SerialLoop() {
   if (!recv.equals("")) {
     if (recv.equals("SHUTDOWN")) {
       resetFunc();
-    } else if (recv.equals("L1")) {
+    } else if (recv.equals(COOP_LIGHT_ON)) {
       board.serialSend(board.CONFIRMATION);
       brightness = 255;
       CoopLightSwitch(1000);
-    } else if (recv.equals("L0")) {
+    } else if (recv.equals(COOP_LIGHT_OFF)) {
       board.serialSend(board.CONFIRMATION);
       brightness = 0;
       CoopLightSwitch(1000);
-    } else if (recv.equals("L+")) {
+    } else if (recv.equals(COOP_LIGHT_DIM_UP)) {
       board.serialSend(board.CONFIRMATION);
       if (brightness < 255)
         CoopLightSwitch(1000, 15);
-    } else if (recv.equals("L-")) {
+    } else if (recv.equals(COOP_LIGHT_DIM_DOWN)) {
       board.serialSend(board.CONFIRMATION);
       if (brightness >= 15)
         CoopLightSwitch(1000, -15);
-    } else if (recv.equals("O0")) {
+    } else if (recv.equals(STOP_DOOR)) {
       board.serialSend(board.CONFIRMATION);
       StopDoor();
-    } else if (recv.equals("O1")) {
+    } else if (recv.equals(OPEN_DOOR)) {
       board.serialSend(board.CONFIRMATION);
       OpenDoor();
-    } else if (recv.equals("O2")) {
+    } else if (recv.equals(CLOSE_DOOR)) {
       board.serialSend(board.CONFIRMATION);
       CloseDoor();
-    } else if (recv.equals("REF")) {
+    } else if (recv.equals(REFRESH)) {
       //refresh all sensor statuses
       board.serialSend(board.CONFIRMATION);
       RefreshSensorData();
-    } else if (recv.equals("R1")) {
+    } else if (recv.equals(LIGHT_TRIGGER_ON)) {
       board.serialSend(board.CONFIRMATION);
       lightTrigger = 1;
-    } else if (recv.equals("R0")) {
+    } else if (recv.equals(LIGHT_TRIGGER_OFF)) {
       board.serialSend(board.CONFIRMATION);
       lightTrigger = 0;
     } else {
@@ -225,7 +239,7 @@ void DaylightCheck() {
   if (doorState == 0) {
     if (daylightHours < AWAKE_TIME) {
       if ((millis() - sunset) > NIGHT_DURATION) {
-        String msg = AWAKE_MESSAGE + daylightHours;
+        String msg = AWAKE_MESSAGE + (String) daylightHours;
         board.serialSend(msg);
         //        delay(1);
         brightness = 255;
